@@ -2,7 +2,8 @@
 
 How fast TimesFM 3.0 runs for this project on Apple silicon, where the time goes, and which
 optimizations are worth it: PyTorch on MPS vs. the MLX backend, `torch.compile`, fp16, int8/int4
-weight quantization, batch size and symmetric averaging.
+weight quantization, batch size and symmetric averaging. Plus estimates for newer Macs and NVIDIA
+GPUs.
 
 Back to the [README](../README.md) · Accuracy results: [RESULTS.md](RESULTS.md) · CLI reference: [USAGE.md](USAGE.md)
 
@@ -20,6 +21,9 @@ Back to the [README](../README.md) · Accuracy results: [RESULTS.md](RESULTS.md)
   accurate). The workload is compute-bound, not bandwidth-bound.
 - **The biggest lever is symmetric averaging.** Turning it off (`--no-symmetric`) halves the runtime
   for ~3% more MAE. That trade is worth taking for exploratory sweeps, not for headline numbers.
+- **Newer Macs could change the picture (estimate).** Running MLX in bf16 on the M5 GPU's neural
+  accelerators should make an M5 Max about 3–4× faster than this M1 Max, and an M5 Ultra about 5–6×.
+  The exact fp32 path gains only 1.5–3×.
 
 ## Setup
 
@@ -150,6 +154,49 @@ compute. 90-day backtest, PyTorch on MPS:
 | `tfm_de_wx_tso` | on | 13.22 | 20.90 | 5.24 | 85.6% | 0.982 |
 | `tfm_de_wx_tso` | off | 13.63 | 21.59 | 5.38 | 84.4% | 0.492 |
 
+## Estimate: newer Macs (M5 Max, M5 Ultra, M6)
+
+These are estimates, not measurements, as of October 2026. They start from the measured MLX fp32 run
+on the M1 Max: about 360 s of GPU work for the ~2.3 PFLOP, plus ~35 s of fixed cost for loading and
+compilation. The GPU part is scaled by each chip's throughput.
+
+**What changed with M5:** every GPU core now has a neural accelerator, a matrix unit. MLX uses them
+for fp16/bf16 matrix multiplies on macOS 26.2 and later. Apple reports 3.3–4× faster LLM prompt
+processing than M4, a similarly compute-bound job
+([Apple Machine Learning Research](https://machinelearning.apple.com/research/exploring-llms-mlx-m5)).
+Published implementations fall back to the regular GPU cores for fp32, so the exact fp32 path
+doesn't gain from them. Whether PyTorch's MPS backend uses them is unclear; the estimates assume it
+doesn't.
+
+**The chips:**
+
+- **M5 Max:** up to 40 GPU cores and 614 GB/s. Third-party figures put it at about 17 TFLOPS in
+  fp32 and 70 TFLOPS in fp16 ([flopper.io](https://flopper.io/gpu/apple-m5-max)).
+- **M5 Ultra** (Mac Studio): up to 80 GPU cores, 1.2 TB/s and up to 512 GB
+  ([Apple](https://www.apple.com/newsroom/2026/08/apple-introduces-m6-and-m5-ultra-for-a-big-leap-in-performance-and-ai-compute/)).
+- **M6** (Mac mini): a 12-core GPU, 170 GB/s and up to 32 GB. Apple quotes nearly 30% more peak GPU
+  AI compute than M5 (same source). Only the base M6 has been announced so far, and reports differ
+  on whether M6 Pro/Max chips will follow or Apple goes straight to M7 in 2027.
+
+| Machine | fp32 (exact, as today) | bf16 on the neural accelerators (MLX) |
+|---|---|---|
+| **M1 Max (measured)** | 6.6 min (MLX) / 7.85 min (PyTorch) | — (no matrix units, no native bf16) |
+| M6, Mac mini (12-core GPU) | ~10–12 min | ~4–6 min |
+| M5 Max (40-core GPU) | ~4–4.5 min | ~1.5–2.5 min |
+| M5 Ultra (80-core GPU) | ~2–2.5 min | ~1–1.5 min |
+
+- **bf16, not fp16.** bf16 has fp32's range, so the overflow behind the fp16 NaN days can't happen.
+  It has fewer mantissa bits than fp16, though. The fp16 run drifted up to ~1 EUR/MWh, and bf16
+  would need the same check.
+- **Assumptions:** about 50% of the neural accelerators' peak for the 1280-wide matrix multiplies.
+  Norms, RoPE, softmax and reshapes are limited by memory bandwidth, which is what holds the M6
+  back at 170 GB/s. Fixed costs drop to ~20 s with the faster CPUs but become a large share on the
+  Ultra; most of that is MLX compiling the per-patch loops once per config. The numbers could be
+  off by ~1.5× either way.
+- **int8 might pay off on M5,** unlike on the M1: the neural accelerators reportedly run int8 at
+  about twice the fp16 rate. But int8 weights alone already drifted up to 4 EUR/MWh here, and int8
+  activations would drift more.
+
 ## Estimate: NVIDIA H100 / B200
 
 These are estimates, not measurements. They take the ~2.3 PFLOP of the full backtest (consistent
@@ -172,11 +219,29 @@ multiplies.
 
 ## Possible improvements
 
-- **For many backtest sweeps:** a `--backend mlx` option with the batched, fused-kernel MLX path
-  (1.19× overall, up to 2× for small configs, same scores).
-- **For exploratory runs:** `--no-symmetric` (2×, ~3% more MAE).
-- **Upstream (`google-research/timesfm`):**
-  - batch the general path of `timesfm3.mlx` `predict_batch`;
-  - use the `mx.fast` kernels in the MLX transformer;
-  - skip the context patches in the CPM refine loop, which is exact in both backends;
-  - align the MLX no-covariate horizon with PyTorch.
+Gains are for this backtest. "Measured" means taken from the benchmarks above; "estimate" means
+derived from them.
+
+**In this repo:**
+
+| Change | Speed gain | Basis | Accuracy |
+|---|---|---|---|
+| `--backend mlx` with the batched, fused-kernel MLX path | 1.19× for the full backtest (7.85 → 6.60 min); 2.0× on `tfm_de` | measured | same scores (within 0.001) |
+| `--no-symmetric` for exploratory runs (the flag exists) | 2× | measured | ~3% more MAE |
+| bf16 on an M5-class Mac, with the MLX path | ~1.5–3× over fp32 on the same Mac | estimate | drift still to be checked |
+
+**Upstream (`google-research/timesfm`):**
+
+| Change | Speed gain | Basis | Accuracy |
+|---|---|---|---|
+| Batch the general path of `timesfm3.mlx` `predict_batch` | 1.16–1.22× on covariate configs, 2.9× on `tfm_de` | measured, 8 days | identical |
+| `mx.fast` kernels (SDPA, RMSNorm, RoPE) in the MLX transformer | 1.11–1.13× on top of batching | measured, 8 days | Δ max 0.002 |
+| Skip the context patches in the CPM refine loop (both backends) | PyTorch on MPS: 1.14× on `tfm_de`, 1.01–1.03× on covariate configs, ~2% of the full backtest. MLX: mostly shorter compile times (not measured) | measured / estimate | exact |
+| Vectorize the running statistics with a numerically safe scan (both backends) | PyTorch on MPS: another ~0.04 s/day per config, ~4% of the full backtest; 1.54× on `tfm_de` together with the CPM change | measured with a naive cumulative-sum version that wasn't accurate enough | needs care with constant series |
+| Align the MLX no-covariate horizon with PyTorch | none (~0.3% more work) | — | removes the difference of up to 16 EUR/MWh |
+
+- **Together, the MLX changes** would make `timesfm3.mlx` as shipped as fast as the 6.60 min path,
+  without project-side patches. That is 1.29–1.36× over today's MLX backend on covariate configs and
+  3.3× on `tfm_de` (measured, 8 days).
+- **The two loop fixes matter more on NVIDIA GPUs,** where kernel launches are a larger share of the
+  run: an estimated 5–20% of the total, depending on batch size.
