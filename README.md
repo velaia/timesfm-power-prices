@@ -20,7 +20,7 @@ working MVP that does this for the German day-ahead market.
 >   multivariate feature, barely helps (24.2 → 23.7).
 > - **Useful in practice.** The forecast's cheapest 3-hour window lands within 30 minutes of the
 >   real one on **86% of days**. "Same as yesterday" manages 66%.
-> - **Cheap.** About 1 second per forecast on a MacBook GPU, and every data source is free and keyless.
+> - **Cheap.** About 1 second per forecast on a MacBook GPU ([performance notes](docs/PERFORMANCE.md)), and every data source is free and keyless.
 > - **Honest caveat.** Without the TSO forecasts, whose 10:00 availability is still being
 >   verified, the guaranteed leak-free score is **16.1 (−52%)**.
 

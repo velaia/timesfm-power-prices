@@ -12,7 +12,7 @@ Reproduce with `uv run price-forecast fetch && uv run price-forecast backtest --
 (and `--context-days 7|14|28|56` for the context table). Rebuild the charts below with
 `uv run price-forecast figures`.
 
-Back to the [README](../README.md) · CLI and data reference: [USAGE.md](USAGE.md)
+Back to the [README](../README.md) · CLI and data reference: [USAGE.md](USAGE.md) · Speed: [PERFORMANCE.md](PERFORMANCE.md)
 
 ## Main table (context 112 days)
 
