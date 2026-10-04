@@ -48,6 +48,13 @@ CONFIGS = [
     Config("tfm_de_wx_tso", [TARGET], WEATHER + CALENDAR + TSO, "DE only, all covariates"),
 ]
 BASELINES = {"naive_d1": "same as yesterday", "naive_d7": "same as last week"}
+CONFIG_BY_NAME = {c.name: c for c in CONFIGS}
+
+# Passed to every TimesFM call, in backtests and live forecasts alike.
+PREDICT_KWARGS = {
+    "make_positive": False,  # prices go negative
+    "padding_mode": "edge",  # horizon is padded to the 64-step output patch
+}
 
 
 def day_bounds(df: pd.DataFrame) -> dict[date, tuple[int, int]]:
@@ -127,9 +134,8 @@ def run(
             outputs, secs = model.predict(
                 forecaster, contexts, horizon,
                 past_future_covariates=covs if covs else None,
-                make_positive=False,  # prices go negative
-                padding_mode="edge",  # horizon is padded to the 64-step output patch
                 use_symmetric_averaging=symmetric,
+                **PREDICT_KWARGS,
             )
             for day, out in zip(group, outputs):
                 start, stop = bounds[day]

@@ -22,6 +22,26 @@ uv run price-forecast fetch            # 2025-06-01 .. tomorrow -> data/dataset.
 uv run price-forecast fetch --start 2025-10-01 --end 2026-09-30
 ```
 
+### Forecast tomorrow
+
+```bash
+uv run price-forecast tomorrow                 # run at ~10:00, forecasts tomorrow
+uv run price-forecast tomorrow --date 2026-10-05   # a past day also prints the actual error
+```
+
+Refreshes only the data window it needs (context + target day), then forecasts with
+`tfm_de_wx_tso`. If SMARD hasn't published the TSO forecasts for D yet, it falls back to
+`tfm_multi_wx` (weather + calendar), or you can choose a config with `--config`.
+
+It prints an hourly table in ct/kWh with the cheapest 3-hour window and writes:
+
+- `outputs/forecast_<date>.json`: prices, q10 and q90 as `{date: {HHMM: ct/kWh}}`, the same
+  shape as the energiepreis-vattenfall-api project.
+- `outputs/forecast_<date>.png`: the forecast band next to today's actual prices.
+
+Live runs append how many TSO-forecast slots for D were already published to
+`data/tso_availability.csv`.
+
 ### Backtest
 
 ```bash

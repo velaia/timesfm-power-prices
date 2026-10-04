@@ -1,4 +1,4 @@
-"""Backtest charts (matplotlib PNGs)."""
+"""Backtest and forecast charts (matplotlib PNGs)."""
 
 from __future__ import annotations
 
@@ -97,6 +97,39 @@ def daily_error(results: pd.DataFrame, configs: dict[str, str], path: Path) -> N
     ax.set_ylim(bottom=0)
     ax.set_title("Daily forecast error, DE-LU", loc="left")
     ax.legend(loc="upper left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _hours(index: pd.DatetimeIndex):
+    local = index.tz_convert(LOCAL_TZ)
+    return local.hour + local.minute / 60
+
+
+def forecast_day(fc, path: Path) -> None:
+    """Tomorrow's forecast (ct/kWh) with its 10–90% band, next to today's actual prices."""
+    fig, ax = plt.subplots(figsize=(12, 5.5))
+    x = _hours(fc.time_utc)
+    w0, w1 = fc.cheapest_window()
+
+    ax.axvspan(x[w0], x[w1 - 1] + 0.25, color=SERIES[2], alpha=0.12, linewidth=0, label="cheapest 3h (forecast)")
+    ax.plot(_hours(fc.previous_day.index), fc.previous_day.to_numpy() / 10, color=INK_2, lw=1.5,
+            ls=(0, (4, 2)), label=f"{fc.day - pd.Timedelta(days=1):%Y-%m-%d} actual")
+    ax.fill_between(x, fc.quantiles[:, 0] / 10, fc.quantiles[:, 8] / 10, color=SERIES[0], alpha=0.18,
+                    linewidth=0, label="10–90% band")
+    ax.plot(x, fc.median / 10, color=SERIES[0], lw=2, label=f"{fc.day:%Y-%m-%d} forecast")
+    if fc.actual is not None:
+        ax.plot(x, fc.actual / 10, color=INK, lw=2, label=f"{fc.day:%Y-%m-%d} actual")
+    ax.axhline(0, color=INK_2, lw=0.8)
+
+    ax.set_xticks(range(24))
+    ax.set_xlim(-0.25, 24)
+    ax.set_xlabel("Hour of day")
+    ax.set_ylabel("Price (ct/kWh, net)")
+    ax.set_title(f"DE-LU day-ahead forecast for {fc.day:%a %Y-%m-%d}\n"
+                 f"TimesFM 3.0, {fc.config}, issued {fc.issued_at:%Y-%m-%d %H:%M}", loc="left")
+    ax.legend(loc="upper left", ncol=2)
     fig.tight_layout()
     fig.savefig(path, dpi=130, bbox_inches="tight")
     plt.close(fig)

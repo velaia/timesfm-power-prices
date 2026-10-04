@@ -76,6 +76,24 @@ def cmd_backtest(args: argparse.Namespace) -> None:
         print(f"Wrote {stem.name}_days.png and {stem.name}_daily_mae.png")
 
 
+def cmd_tomorrow(args: argparse.Namespace) -> None:
+    from . import forecast
+
+    device = backtest.model.resolve_device(args.device)
+    fc = forecast.run(args.date, args.context_days, device, DATA_DIR, args.config)
+    forecast.print_summary(fc)
+
+    stem = OUTPUT_DIR / f"forecast_{fc.day.isoformat()}"
+    forecast.save_json(fc, stem.with_suffix(".json"))
+    written = [stem.with_suffix(".json")]
+    if not args.no_plot:
+        from . import plots
+
+        plots.forecast_day(fc, stem.with_suffix(".png"))
+        written.append(stem.with_suffix(".png"))
+    print("\nWrote " + " and ".join(str(p) for p in written))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="price-forecast", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -97,6 +115,16 @@ def main() -> None:
     bt.add_argument("--no-symmetric", action="store_true", help="disable symmetric averaging (halves compute)")
     bt.add_argument("--no-plot", action="store_true", help="skip writing PNGs to outputs/")
     bt.set_defaults(func=cmd_backtest)
+
+    tm = sub.add_parser("tomorrow", help="forecast tomorrow's 96 quarter-hour prices (run ~10:00)")
+    tm.add_argument("--date", type=date.fromisoformat, default=date.today() + timedelta(days=1),
+                    help="day to forecast (default tomorrow); past days also show the actual error")
+    tm.add_argument("--config", choices=[c.name for c in backtest.CONFIGS],
+                    help="default: tfm_de_wx_tso, or tfm_multi_wx if TSO forecasts aren't published yet")
+    tm.add_argument("--context-days", type=int, default=112, help="days of history (max 160)")
+    tm.add_argument("--device", default="auto", help="auto, mps, cuda or cpu")
+    tm.add_argument("--no-plot", action="store_true", help="skip the PNG")
+    tm.set_defaults(func=cmd_tomorrow)
 
     args = parser.parse_args()
     args.func(args)
