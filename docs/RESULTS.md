@@ -52,7 +52,7 @@ With 28 days of context, `tfm_de` scored 25.44 and `tfm_multi` 24.37.
    TSO forecasts, so it is not yet verified that they are published by 10:00 on D-1.
 3. **Longer context keeps helping,** with diminishing returns beyond ~56 days.
 4. **Price spikes and deep negatives get damped.** On the most volatile day (2026-09-14) the evening
-   peak reached ~740 EUR/MWh; the forecast peaked at ~310. Slots predicted negative are right 88% of
+   peak reached ~740 EUR/MWh; the forecast peaked at ~480 (with 28 days of context only ~310). Slots predicted negative are right 88% of
    the time, but only 57% of negative slots are caught.
 5. **The quantile band is roughly calibrated:** the q10–q90 band covers 76–78% of the actual prices,
    against a target of 80%.
