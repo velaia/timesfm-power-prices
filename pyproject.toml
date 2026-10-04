@@ -1,0 +1,25 @@
+[project]
+name = "price-forecast"
+version = "0.1.0"
+description = "Zero-shot day-ahead electricity price forecasts for Germany with TimesFM 3.0"
+readme = "README.md"
+authors = [
+    { name = "Daniel N. Lang", email = "daniel.lang@velaia.de" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "holidays>=0.105",
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.3",
+    "pandas>=3.0.6",
+    "pyarrow>=25.0.1",
+    "requests>=2.34.2",
+    "timesfm[torch]>=3.0.0",
+]
+
+[project.scripts]
+price-forecast = "price_forecast:main"
+
+[build-system]
+requires = ["uv_build>=0.12.22,<0.13.0"]
+build-backend = "uv_build"
