@@ -188,6 +188,8 @@ def score(results: pd.DataFrame) -> pd.DataFrame:
             row["pinball"] = metrics.pinball_loss(actual, q, model.QUANTILE_LEVELS)
         else:
             row["80% cov %"] = row["pinball"] = float("nan")
+        if name == "naive_d1":  # comparing the baseline with itself
+            row["vs d-1 %"] = row["days beat d-1 %"] = float("nan")
         row["s/day"] = float(g.groupby("day").seconds.first().mean())
         table[name] = row
     return pd.DataFrame(table).T

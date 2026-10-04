@@ -8,7 +8,11 @@ day-ahead prices of day D as of **10:00 on D-1**.
 - **Device:** Apple-silicon GPU (MPS)
 - **Prices in the period:** mean 131.7 EUR/MWh, std 73.7, 551 of 8,640 quarter hours negative
 
-Reproduce with `uv run price-forecast fetch && uv run price-forecast backtest`.
+Reproduce with `uv run price-forecast fetch && uv run price-forecast backtest --end 2026-10-05`
+(and `--context-days 7|14|28|56` for the context table). Rebuild the charts below with
+`uv run price-forecast figures`.
+
+Back to the [README](../README.md) · CLI and data reference: [USAGE.md](USAGE.md)
 
 ## Main table (context 112 days)
 
@@ -56,6 +60,8 @@ With 28 days of context, `tfm_de` scored 25.44 and `tfm_multi` 24.37.
    the time, but only 57% of negative slots are caught.
 5. **The quantile band is roughly calibrated:** the q10–q90 band covers 76–78% of the actual prices,
    against a target of 80%.
+
+![MAE by context length](context_length.png)
 
 ![Example days](backtest_ctx112d_days.png)
 

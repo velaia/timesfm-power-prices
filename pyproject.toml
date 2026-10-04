@@ -3,6 +3,15 @@ name = "price-forecast"
 version = "0.1.0"
 description = "Zero-shot day-ahead electricity price forecasts for Germany with TimesFM 3.0"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["timesfm", "time-series", "forecasting", "foundation-model", "electricity-prices",
+            "day-ahead", "epex", "energy", "germany", "zero-shot"]
+classifiers = [
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Intended Audience :: Science/Research",
+]
 authors = [
     { name = "Daniel N. Lang", email = "daniel.lang@velaia.de" }
 ]
@@ -17,9 +26,28 @@ dependencies = [
     "timesfm[torch]>=3.0.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/velaia/timesfm-power-prices"
+Results = "https://github.com/velaia/timesfm-power-prices/blob/main/docs/RESULTS.md"
+
 [project.scripts]
 price-forecast = "price_forecast:main"
 
 [build-system]
 requires = ["uv_build>=0.12.22,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+[tool.ruff]
+line-length = 130
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

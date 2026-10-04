@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -65,8 +65,8 @@ def _chunk(filter_id: int, region: str, start_ms: int, cache_dir: Path) -> list[
     url = f"{BASE_URL}/{filter_id}/{region}/{filter_id}_{region}_{RESOLUTION}_{start_ms}.json"
     series = _get_json(url)["series"]
 
-    chunk_end = datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc) + timedelta(days=7)
-    if chunk_end < datetime.now(timezone.utc) - _FINAL_AFTER:
+    chunk_end = datetime.fromtimestamp(start_ms / 1000, tz=UTC) + timedelta(days=7)
+    if chunk_end < datetime.now(UTC) - _FINAL_AFTER:
         path.write_text(json.dumps(series))
     return series
 

@@ -94,6 +94,13 @@ def cmd_tomorrow(args: argparse.Namespace) -> None:
     print("\nWrote " + " and ".join(str(p) for p in written))
 
 
+def cmd_figures(args: argparse.Namespace) -> None:
+    from . import figures
+
+    for path in figures.build(OUTPUT_DIR, Path("docs")):
+        print(f"Wrote {path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="price-forecast", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -125,6 +132,9 @@ def main() -> None:
     tm.add_argument("--device", default="auto", help="auto, mps, cuda or cpu")
     tm.add_argument("--no-plot", action="store_true", help="skip the PNG")
     tm.set_defaults(func=cmd_tomorrow)
+
+    fg = sub.add_parser("figures", help="rebuild the docs/ charts from outputs/backtest_ctx*d files")
+    fg.set_defaults(func=cmd_figures)
 
     args = parser.parse_args()
     args.func(args)
