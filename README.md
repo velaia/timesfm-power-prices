@@ -15,6 +15,9 @@ working MVP that does this for the German day-ahead market.
 > - **Roughly halves the error of the naive benchmark.** Over 90 days, the model scores an MAE
 >   of **13.2 EUR/MWh**, against 33.5 for "same as yesterday" (−61%). It beats that benchmark
 >   on **91% of days**.
+> - **Holds up over a full year.** Across 365 days (Oct 2025 to Oct 2026) the MAE is **12.4**
+>   (14.4 without the TSO forecasts), against 30.2 for "same as yesterday"
+>   ([context study](https://claude.ai/artifact/AFtV1Mv1Q3uaZB8NB8xvia)).
 > - **Covariates do the heavy lifting.** Weather plus TSO generation forecasts cut the error
 >   from 24.2 to 13.2. Co-forecasting 8 neighbouring markets, TimesFM 3's headline
 >   multivariate feature, barely helps (24.2 → 23.7).
@@ -89,6 +92,11 @@ plus more charts, is in **[docs/RESULTS.md](docs/RESULTS.md)**.
 
 <img alt="MAE versus days of context: the all-covariates config falls from 20.2 at 7 days to 13.2 at 112 days; the weather-only config from 23.8 to 16.1; 'same as yesterday' sits at 33.5." src="docs/context_length.png" width="640">
 
+**Follow-up: more history, coarser steps and a full year.** The
+[interactive context study](https://claude.ai/artifact/AFtV1Mv1Q3uaZB8NB8xvia) has the charts.
+An offline copy is in [docs/context_study.html](docs/context_study.html) (open it in a browser), and the
+tables are in [docs/RESULTS.md](docs/RESULTS.md#more-history-and-coarser-steps).
+
 ## What I learned
 
 1. **Zero-shot works.** With the right covariates, a general foundation model that has never
@@ -98,8 +106,10 @@ plus more charts, is in **[docs/RESULTS.md](docs/RESULTS.md)**.
    multivariate forecasting, but co-forecasting 8 coupled neighbour markets gains only 0.5
    EUR/MWh. Weather and generation forecasts do almost all the work. With all covariates, DE
    alone even beats the 9-market setup (13.2 vs 13.8).
-3. **Longer context helps, with diminishing returns.** For the best config, MAE falls from
-   20.2 (7 days) to 16.3 (14), 14.7 (28), 13.8 (56) and 13.2 (112).
+3. **Longer context helps, up to a point.** For the best config, MAE falls from
+   20.2 (7 days) to 16.3 (14), 14.7 (28), 13.8 (56) and 13.2 (112). 160 days, the most TimesFM 3
+   accepts at 15-minute steps, is no better. Hourly steps allow up to 640 days, but they lose
+   more quarter-hour detail than the extra history wins back: their best score is 14.2, at 480 days.
 4. **The forecast is useful even when its error isn't small.** It finds the cheapest 3-hour
    window on 86% of days, which matters more for planning a dishwasher run than the exact
    price does.
@@ -119,9 +129,10 @@ plus more charts, is in **[docs/RESULTS.md](docs/RESULTS.md)**.
   hours. When it does forecast a negative price, it is right 88% of the time.
 - **The uncertainty band is roughly calibrated.** The q10–q90 band covers 78% of actual
   prices, against a nominal 80%.
-- **One market, one season.** The 90 days run from summer into autumn, a solar-heavy period.
-  The 15-minute day-ahead market only started on 2025-10-01; earlier prices, which are hourly
-  values repeated 4×, serve only as context.
+- **One market.** The headline 90 days run from summer into autumn, a solar-heavy period. A
+  full-year backtest scores better, at 12.4 (14.4 without TSO). Winter is easiest (10.8 from
+  October to March), and June and September are hardest. The 15-minute day-ahead market only
+  started on 2025-10-01; earlier prices, which are hourly values repeated 4×, serve only as context.
 
 ## Live forecast on record
 

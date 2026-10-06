@@ -49,7 +49,7 @@ def cmd_backtest(args: argparse.Namespace) -> None:
     results = backtest.run(df, days, args.context_days, device, configs, args.batch_size, not args.no_symmetric)
 
     OUTPUT_DIR.mkdir(exist_ok=True)
-    stem = OUTPUT_DIR / f"backtest_ctx{args.context_days}d"
+    stem = OUTPUT_DIR / (args.out or f"backtest_ctx{args.context_days}d")
     results.to_parquet(stem.with_suffix(".parquet"))
     table = backtest.score(results)
     table.to_csv(stem.with_name(stem.name + "_summary.csv"))
@@ -121,6 +121,7 @@ def main() -> None:
     bt.add_argument("--batch-size", type=int, default=8)
     bt.add_argument("--no-symmetric", action="store_true", help="disable symmetric averaging (halves compute)")
     bt.add_argument("--no-plot", action="store_true", help="skip writing PNGs to outputs/")
+    bt.add_argument("--out", help="output file stem in outputs/ (default backtest_ctx<N>d)")
     bt.set_defaults(func=cmd_backtest)
 
     tm = sub.add_parser("tomorrow", help="forecast tomorrow's 96 quarter-hour prices (run ~10:00)")

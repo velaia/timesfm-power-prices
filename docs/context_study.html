@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TimesFM Context Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,500..800&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column of findings; each finding is a headline sentence, then its chart on a chart surface. */
+:root {
+  --page: #f3f5f7;
+  --surface: #fcfdfd;
+  --raised: #ffffff;
+  --ink: #0d1117;
+  --ink2: #4a5260;
+  --muted: #7d8592;
+  --grid: #e3e6ea;
+  --axis: #c3c8cf;
+  --border: rgba(13, 17, 23, 0.10);
+  --band: rgba(42, 120, 214, 0.07);
+  --s15: #2a78d6;      /* 15-min, and TimesFM all covariates */
+  --s15-soft: #86b6ef; /* TimesFM weather + calendar in the year chart */
+  --s30: #eb6834;
+  --s1h: #1baf7a;
+  --naive: #a3a9b2;
+  --good: #006300;
+  --bad: #b3261e;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0d0f12; --surface: #15181c; --raised: #1d2126; --ink: #f2f4f6; --ink2: #b8bfc8; --muted: #858c96;
+    --grid: #252a30; --axis: #363c44; --border: rgba(255, 255, 255, 0.10); --band: rgba(57, 135, 229, 0.10);
+    --s15: #3987e5; --s15-soft: #1c5cab; --s30: #d95926; --s1h: #199e70; --naive: #6b727c;
+    --good: #3cbf3c; --bad: #f2867f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0d0f12; --surface: #15181c; --raised: #1d2126; --ink: #f2f4f6; --ink2: #b8bfc8; --muted: #858c96;
+  --grid: #252a30; --axis: #363c44; --border: rgba(255, 255, 255, 0.10); --band: rgba(57, 135, 229, 0.10);
+  --s15: #3987e5; --s15-soft: #1c5cab; --s30: #d95926; --s1h: #199e70; --naive: #6b727c;
+  --good: #3cbf3c; --bad: #f2867f; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font: 400 16px/1.55 var(--font-body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 40px); padding-block: 40px 72px; display: grid; gap: 56px; }
+header { display: grid; gap: 16px; }
+.eyebrow { font: 500 12px/1.4 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 760 clamp(1.9rem, 4.2vw, 3rem)/1.08 var(--font-display); font-stretch: 92%; letter-spacing: -0.015em; margin: 0; max-width: 24ch; text-wrap: balance; }
+h2 { font: 700 clamp(1.3rem, 2.4vw, 1.65rem)/1.2 var(--font-display); font-stretch: 95%; margin: 0; text-wrap: balance; max-width: 40ch; }
+h3 { font: 650 1rem/1.3 var(--font-display); margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lede { font-size: 1.15rem; color: var(--ink2); }
+.lede strong, p strong { color: var(--ink); font-weight: 600; }
+section { display: grid; gap: 16px; }
+.note { font-size: 0.92rem; color: var(--ink2); }
+.mono { font-family: var(--font-mono); font-size: 0.86em; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; display: grid; gap: 4px; align-content: start; }
+.tile .label { font-size: 0.9rem; color: var(--ink2); }
+.tile .value { font: 720 2.3rem/1.05 var(--font-display); font-stretch: 90%; }
+.tile .value small { font: 500 0.9rem var(--font-body); color: var(--muted); margin-left: 4px; }
+.tile .sub { font: 400 0.82rem/1.45 var(--font-mono); color: var(--muted); }
+.delta { font: 600 0.86rem var(--font-body); }
+.delta.good { color: var(--good); } .delta.bad { color: var(--bad); } .delta.flat { color: var(--ink2); }
+.tile.lead { border-color: color-mix(in srgb, var(--s15) 45%, var(--border)); }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 18px 12px; display: grid; gap: 12px; min-width: 0; }
+.facets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; }
+.facet-head { display: grid; gap: 2px; }
+.facet-head span { font-size: 0.86rem; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.88rem; color: var(--ink2); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.key { width: 18px; height: 3px; border-radius: 2px; display: inline-block; }
+.key.box { width: 12px; height: 12px; border-radius: 3px; }
+
+.chart { position: relative; min-width: 0; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart svg:focus { outline: none; }
+.chart svg:focus-visible { outline: 2px solid var(--s15); outline-offset: 4px; border-radius: 4px; }
+.tip { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; min-width: 170px; background: var(--raised); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.14); padding: 9px 11px; font-size: 0.84rem; display: grid; gap: 5px; }
+.tip[hidden] { display: none; }
+.tip .tt { font: 500 0.75rem var(--font-mono); color: var(--muted); letter-spacing: 0.03em; }
+.tip .row { display: grid; grid-template-columns: 14px auto 1fr; align-items: center; gap: 8px; }
+.tip .row b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.tip .row i { font-style: normal; color: var(--ink2); }
+.tip .key { width: 14px; }
+
+svg .grid { stroke: var(--grid); stroke-width: 1; }
+svg .baseline { stroke: var(--axis); stroke-width: 1; }
+svg .vline { stroke: var(--axis); stroke-width: 1; }
+svg .cross { stroke: var(--ink2); stroke-width: 1; opacity: 0.55; }
+svg .band { fill: var(--band); }
+svg .ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+svg .dot { stroke: var(--surface); stroke-width: 2; }
+svg .t-axis { fill: var(--muted); font: 400 11.5px var(--font-mono); font-variant-numeric: tabular-nums; }
+svg .t-note { fill: var(--muted); font: 400 11.5px var(--font-body); }
+svg .t-label { fill: var(--ink2); font: 400 12.5px var(--font-body); }
+svg .t-strong { fill: var(--ink); font: 600 12.5px var(--font-body); }
+svg .bar:hover, svg .bar:focus { opacity: 0.8; outline: none; }
+.c-15 { stroke: var(--s15); } .f-15 { fill: var(--s15); } .b-15 { background: var(--s15); }
+.c-15s { stroke: var(--s15-soft); } .f-15s { fill: var(--s15-soft); } .b-15s { background: var(--s15-soft); }
+.c-30 { stroke: var(--s30); } .f-30 { fill: var(--s30); } .b-30 { background: var(--s30); }
+.c-1h { stroke: var(--s1h); } .f-1h { fill: var(--s1h); } .b-1h { background: var(--s1h); }
+.c-nv { stroke: var(--naive); } .f-nv { fill: var(--naive); } .b-nv { background: var(--naive); }
+.c-ink { stroke: var(--ink); } .f-ink { fill: var(--ink); } .b-ink { background: var(--ink); }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; align-items: start; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--grid); }
+th { font: 500 0.74rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); background: var(--surface); position: sticky; top: 0; }
+th:nth-child(-n+3), td:nth-child(-n+3) { text-align: left; }
+tbody tr:last-child td { border-bottom: none; }
+tr.best td { font-weight: 600; }
+tr.group td { font: 650 0.86rem var(--font-display); color: var(--ink); background: color-mix(in srgb, var(--page) 60%, var(--surface)); text-align: left; }
+.chip { display: inline-block; font: 500 0.7rem var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor; margin-left: 6px; color: var(--good); }
+.method { display: grid; gap: 10px; }
+.method ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 72ch; color: var(--ink2); font-size: 0.95rem; }
+footer { font-size: 0.85rem; color: var(--muted); }
+a { color: inherit; text-decoration-color: var(--s15); text-underline-offset: 2px; }
+a:hover { color: var(--s15); }
+@media (prefers-reduced-motion: no-preference) { .tip { transition: opacity 0.12s; } }
+</style>
+<style>body { margin: 0; } [hidden] { display: none !important; }</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">DE-LU day-ahead · 96 quarter hours · issued 10:00 on D-1 · TimesFM 3.0 zero-shot</div>
+    <h1>Does more history improve tomorrow’s price forecast?</h1>
+    <p class="lede">Only a little. At quarter-hour resolution TimesFM&nbsp;3 stops improving at about <strong>112 days</strong> of context. Hourly steps allow up to 640 days of history, but they lose more in quarter-hour detail than the extra history wins back. The bigger finding is the <strong>full-year backtest</strong>. Over 365 days the error is lower than the 90-day test suggested: <strong>12.4&nbsp;EUR/MWh</strong> with all covariates and <strong>14.4</strong> with weather and calendar only.</p>
+    <div class="tiles" id="tiles"></div>
+  </header>
+
+  <section>
+    <h2>Hourly steps with 480 days of history still lose to 15-minute steps with 56</h2>
+    <p>At 15-minute resolution the gain flattens after 56 days and stops at 112. The 160-day maximum scores 13.40, against 13.22 at 112 days. Coarser steps do keep improving with more history. Hourly forecasts fall from 16.04 at 112 days to 14.18 at 480, and half-hourly ones from 15.13 to 14.58 at 320. They start too far behind to catch up. One cheap gain did show up: a blend of 75% of the current forecast and 25% of the 480-day hourly one scores <strong>12.98</strong> (weather only: 15.66). That weight was picked on these same 90 days, so it should be confirmed on the full year before it's used.</p>
+    <div class="card">
+      <div class="legend" id="sweep-legend"></div>
+      <div class="facets">
+        <div class="facet-head-wrap" style="display:grid;gap:8px;min-width:0">
+          <div class="facet-head"><h3>Weather + calendar</h3><span>Every input exists at 10:00 D-1</span></div>
+          <div class="chart" id="sweep-wx"></div>
+        </div>
+        <div style="display:grid;gap:8px;min-width:0">
+          <div class="facet-head"><h3>All covariates, incl. TSO forecasts</h3><span>Best backtest score; TSO timing unverified</span></div>
+          <div class="chart" id="sweep-tso"></div>
+        </div>
+      </div>
+      <p class="note">MAE in EUR/MWh over the same 90 forecast days (2026-07-08 to 2026-10-05), scored on quarter hours. Coarse forecasts are spread back to 15 minutes by interpolating through the hour or half-hour centres. Vertical lines mark each resolution's context limit (15,360 steps). Hover or focus a chart and use the arrow keys to read values.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Hourly steps can’t draw the quarter-hour pattern</h2>
+    <p>Since October 2025 the auction clears every quarter hour, and prices within an hour often move in a saw-tooth. Even a perfect hourly forecast, spread back to quarter hours, would be off by 5.6&nbsp;EUR/MWh on average, or 9.0 if each hour is held flat. That is a large share of the 13.2 the 15-minute model scores. Half-hourly steps lose less (3.3), which is why they come closer.</p>
+    <div class="two">
+      <div class="card">
+        <h3>Error from resolution alone</h3>
+        <div class="chart" id="floor"></div>
+        <p class="note">MAE of a perfect half-hourly or hourly forecast against the real quarter-hour prices, same 90 days. The vertical line is today's 15-minute model error.</p>
+      </div>
+      <div class="card">
+        <div class="facet-head"><h3 id="ex-title">Example day</h3><span id="ex-sub"></span></div>
+        <div class="legend" id="ex-legend"></div>
+        <div class="chart" id="example"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Over a full year the model does better than the 90-day test showed</h2>
+    <p>The original test covered July to early October, a solar-heavy stretch that turned out to be harder than average. Over the 365 forecast days from 2025-10-06 to 2026-10-05, all covariates score 12.4 and weather + calendar 14.4, against 30.2 for same as yesterday. Winter is the easiest season, at 10.8 from October to March. The error follows price volatility, and June and September are the hardest months. Only the cheapest-3-hour hit rate drops, to 74% and 66%. The misses are mostly on flat winter days, where several 3-hour windows cost almost the same. Using the forecast’s window costs only 0.9&nbsp;EUR/MWh more than the true cheapest one on average, against 5.8 for same as yesterday.</p>
+    <div class="tiles" id="year-tiles"></div>
+    <div class="card">
+      <div class="legend" id="year-legend"></div>
+      <div class="chart" id="year"></div>
+      <h3 style="margin-top:6px">Price volatility per month</h3>
+      <div class="chart" id="vol"></div>
+      <p class="note">Monthly MAE in EUR/MWh, 15-minute model with 112 days of context, forecast days 2025-10-06 to 2026-10-05. October 2025 starts on the 6th; October 2026 has 5 days. The shaded months hold the original 90-day test.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Every run</h2>
+    <div class="table-wrap"><table id="table"></table></div>
+  </section>
+
+  <section class="method">
+    <h2>How this was run</h2>
+    <ul>
+      <li>Model: <span class="mono">google/timesfm-3.0-pytorch</span>, zero-shot, on an M1 Max GPU (MPS), with the repo’s settings (symmetric averaging on, <span class="mono">make_positive</span> off).</li>
+      <li>Every forecast is issued as of 10:00 on D-1 and predicts every quarter hour of D (92, 96 or 100 on DST days).</li>
+      <li>Context limit: TimesFM&nbsp;3 accepts at most 15,360 steps (<span class="mono">_MAX_CONTEXT_LENGTH</span>). That is 160 days of quarter hours, 320 days of half hours or 640 days of hours. Longer inputs are cut without a warning.</li>
+      <li>Coarse runs: prices and covariates are averaged into UTC half hours or hours and forecast at that resolution. The forecast is then spread back to quarter hours, either held flat or interpolated through the bucket centres, and scored against the real 15-minute prices.</li>
+      <li>Longer contexts need older data, so the dataset was rebuilt from 2024-03-01, the first date with complete Open-Meteo previous-day runs (100&nbsp;m wind starts in February 2024). Before 2025-10-01 the market cleared hourly, so those prices are hourly values repeated four times.</li>
+      <li>In the year-long run, forecast days before about 2026-01-21 have context that partly predates 15-minute trading. That is what a live run would have seen at the time.</li>
+      <li>The TSO caveat from the README still applies. The all-covariates numbers use SMARD’s final TSO forecasts, which have so far appeared on SMARD only after the auction. Weather + calendar is the setup that is achievable live today.</li>
+      <li>Reproduce: the commands are in <a href="https://github.com/velaia/timesfm-power-prices/blob/main/docs/RESULTS.md#more-history-and-coarser-steps">docs/RESULTS.md</a>, and the code is in <a href="https://github.com/velaia/timesfm-power-prices/tree/main/experiments/context_study">experiments/context_study</a>.</li>
+    </ul>
+  </section>
+
+  <footer>Generated 2026-10-06 by <span class="mono">experiments/context_study/build_page.py</span> in <a href="https://github.com/velaia/timesfm-power-prices">velaia/timesfm-power-prices</a>. Errors in EUR/MWh; divide by 10 for ct/kWh.</footer>
+</div>
+
+<script>
+const D = {"sweep":[{"freq":"15min","ctx":7,"upsample":"native","config":"tfm_multi_wx","MAE":23.84,"RMSE":37.11,"vs d-1 %":28.92,"days beat d-1 %":73.33,"3h regret":1.41,"3h hit %":72.22,"neg recall %":19.06,"neg prec %":66.46,"80% cov %":76.1,"pinball":9.49,"s/day":0.09},{"freq":"15min","ctx":7,"upsample":"native","config":"tfm_de_wx_tso","MAE":20.2,"RMSE":32.23,"vs d-1 %":39.76,"days beat d-1 %":78.89,"3h regret":1.21,"3h hit %":83.33,"neg recall %":25.05,"neg prec %":67.98,"80% cov %":84.27,"pinball":8.02,"s/day":0.08},{"freq":"15min","ctx":14,"upsample":"native","config":"tfm_multi_wx","MAE":19.6,"RMSE":31.58,"vs d-1 %":41.55,"days beat d-1 %":82.22,"3h regret":1.02,"3h hit %":76.67,"neg recall %":30.85,"neg prec %":92.9,"80% cov %":78.81,"pinball":7.86,"s/day":0.18},{"freq":"15min","ctx":14,"upsample":"native","config":"tfm_de_wx_tso","MAE":16.27,"RMSE":26.63,"vs d-1 %":51.5,"days beat d-1 %":87.78,"3h regret":0.73,"3h hit %":83.33,"neg recall %":42.47,"neg prec %":92.86,"80% cov %":82.53,"pinball":6.51,"s/day":0.15},{"freq":"15min","ctx":28,"upsample":"native","config":"tfm_multi_wx","MAE":17.4,"RMSE":28.35,"vs d-1 %":48.11,"days beat d-1 %":82.22,"3h regret":0.83,"3h hit %":78.89,"neg recall %":30.31,"neg prec %":98.24,"80% cov %":79.54,"pinball":6.91,"s/day":0.31},{"freq":"15min","ctx":28,"upsample":"native","config":"tfm_de_wx_tso","MAE":14.71,"RMSE":24.33,"vs d-1 %":56.14,"days beat d-1 %":86.67,"3h regret":0.62,"3h hit %":85.56,"neg recall %":48.64,"neg prec %":81.96,"80% cov %":80.03,"pinball":5.85,"s/day":0.23},{"freq":"15min","ctx":56,"upsample":"native","config":"tfm_multi_wx","MAE":16.34,"RMSE":27.0,"vs d-1 %":51.29,"days beat d-1 %":84.44,"3h regret":0.67,"3h hit %":83.33,"neg recall %":44.1,"neg prec %":86.17,"80% cov %":79.24,"pinball":6.47,"s/day":0.67},{"freq":"15min","ctx":56,"upsample":"native","config":"tfm_de_wx_tso","MAE":13.78,"RMSE":23.19,"vs d-1 %":58.91,"days beat d-1 %":91.11,"3h regret":0.55,"3h hit %":85.56,"neg recall %":56.99,"neg prec %":84.18,"80% cov %":78.16,"pinball":5.5,"s/day":0.51},{"freq":"15min","ctx":112,"upsample":"native","config":"tfm_multi_wx","MAE":16.06,"RMSE":25.88,"vs d-1 %":52.12,"days beat d-1 %":85.56,"3h regret":0.6,"3h hit %":83.33,"neg recall %":44.46,"neg prec %":86.27,"80% cov %":76.55,"pinball":6.33,"s/day":1.4},{"freq":"15min","ctx":112,"upsample":"native","config":"tfm_de_wx_tso","MAE":13.22,"RMSE":20.9,"vs d-1 %":60.58,"days beat d-1 %":91.11,"3h regret":0.57,"3h hit %":85.56,"neg recall %":56.81,"neg prec %":88.42,"80% cov %":78.4,"pinball":5.24,"s/day":1.04},{"freq":"15min","ctx":160,"upsample":"native","config":"tfm_multi_wx","MAE":15.97,"RMSE":25.68,"vs d-1 %":52.38,"days beat d-1 %":84.44,"3h regret":0.63,"3h hit %":85.56,"neg recall %":46.1,"neg prec %":86.99,"80% cov %":76.38,"pinball":6.29,"s/day":3.71},{"freq":"15min","ctx":160,"upsample":"native","config":"tfm_de_wx_tso","MAE":13.4,"RMSE":21.56,"vs d-1 %":60.05,"days beat d-1 %":92.22,"3h regret":0.55,"3h hit %":88.89,"neg recall %":58.98,"neg prec %":86.9,"80% cov %":78.07,"pinball":5.31,"s/day":2.79},{"freq":"30min","ctx":112,"upsample":"step","config":"tfm_multi_wx","MAE":17.75,"RMSE":27.81,"3h hit %":72.22,"neg recall %":39.93,"80% cov %":76.92,"pinball":6.98},{"freq":"30min","ctx":112,"upsample":"step","config":"tfm_de_wx_tso","MAE":15.44,"RMSE":23.83,"3h hit %":78.89,"neg recall %":49.36,"80% cov %":75.22,"pinball":6.07},{"freq":"30min","ctx":112,"upsample":"linear","config":"tfm_multi_wx","MAE":17.5,"RMSE":27.46,"3h hit %":83.33,"neg recall %":39.2,"80% cov %":77.67,"pinball":6.88},{"freq":"30min","ctx":112,"upsample":"linear","config":"tfm_de_wx_tso","MAE":15.13,"RMSE":23.41,"3h hit %":80.0,"neg recall %":49.0,"80% cov %":76.02,"pinball":5.96},{"freq":"30min","ctx":160,"upsample":"step","config":"tfm_multi_wx","MAE":17.35,"RMSE":27.4,"3h hit %":73.33,"neg recall %":39.56,"80% cov %":76.63,"pinball":6.84},{"freq":"30min","ctx":160,"upsample":"step","config":"tfm_de_wx_tso","MAE":15.0,"RMSE":23.15,"3h hit %":81.11,"neg recall %":45.37,"80% cov %":75.66,"pinball":5.91},{"freq":"30min","ctx":160,"upsample":"linear","config":"tfm_multi_wx","MAE":17.1,"RMSE":27.07,"3h hit %":83.33,"neg recall %":39.02,"80% cov %":77.31,"pinball":6.73},{"freq":"30min","ctx":160,"upsample":"linear","config":"tfm_de_wx_tso","MAE":14.69,"RMSE":22.74,"3h hit %":80.0,"neg recall %":45.01,"80% cov %":76.63,"pinball":5.79},{"freq":"30min","ctx":320,"upsample":"step","config":"tfm_multi_wx","MAE":17.34,"RMSE":26.98,"3h hit %":76.67,"neg recall %":41.38,"80% cov %":77.2,"pinball":6.84},{"freq":"30min","ctx":320,"upsample":"step","config":"tfm_de_wx_tso","MAE":14.89,"RMSE":23.45,"3h hit %":81.11,"neg recall %":46.46,"80% cov %":76.19,"pinball":5.85},{"freq":"30min","ctx":320,"upsample":"linear","config":"tfm_multi_wx","MAE":17.08,"RMSE":26.65,"3h hit %":83.33,"neg recall %":38.66,"80% cov %":77.97,"pinball":6.73},{"freq":"30min","ctx":320,"upsample":"linear","config":"tfm_de_wx_tso","MAE":14.58,"RMSE":23.08,"3h hit %":81.11,"neg recall %":46.28,"80% cov %":77.41,"pinball":5.73},{"freq":"1h","ctx":112,"upsample":"step","config":"tfm_multi_wx","MAE":20.23,"RMSE":31.11,"3h hit %":75.56,"neg recall %":24.5,"80% cov %":77.2,"pinball":8.07},{"freq":"1h","ctx":112,"upsample":"step","config":"tfm_de_wx_tso","MAE":17.56,"RMSE":27.41,"3h hit %":77.78,"neg recall %":31.03,"80% cov %":76.01,"pinball":6.98},{"freq":"1h","ctx":112,"upsample":"linear","config":"tfm_multi_wx","MAE":18.87,"RMSE":29.51,"3h hit %":77.78,"neg recall %":23.96,"80% cov %":80.08,"pinball":7.54},{"freq":"1h","ctx":112,"upsample":"linear","config":"tfm_de_wx_tso","MAE":16.04,"RMSE":25.51,"3h hit %":73.33,"neg recall %":29.22,"80% cov %":79.53,"pinball":6.39},{"freq":"1h","ctx":160,"upsample":"step","config":"tfm_multi_wx","MAE":19.34,"RMSE":29.77,"3h hit %":76.67,"neg recall %":30.31,"80% cov %":77.97,"pinball":7.69},{"freq":"1h","ctx":160,"upsample":"step","config":"tfm_de_wx_tso","MAE":17.23,"RMSE":26.87,"3h hit %":77.78,"neg recall %":33.76,"80% cov %":75.84,"pinball":6.83},{"freq":"1h","ctx":160,"upsample":"linear","config":"tfm_multi_wx","MAE":17.91,"RMSE":28.14,"3h hit %":82.22,"neg recall %":29.22,"80% cov %":80.67,"pinball":7.15},{"freq":"1h","ctx":160,"upsample":"linear","config":"tfm_de_wx_tso","MAE":15.68,"RMSE":24.93,"3h hit %":83.33,"neg recall %":34.66,"80% cov %":79.59,"pinball":6.22},{"freq":"1h","ctx":320,"upsample":"step","config":"tfm_multi_wx","MAE":18.9,"RMSE":29.4,"3h hit %":77.78,"neg recall %":38.66,"80% cov %":77.63,"pinball":7.49},{"freq":"1h","ctx":320,"upsample":"step","config":"tfm_de_wx_tso","MAE":16.57,"RMSE":26.1,"3h hit %":76.67,"neg recall %":41.92,"80% cov %":77.09,"pinball":6.58},{"freq":"1h","ctx":320,"upsample":"linear","config":"tfm_multi_wx","MAE":17.56,"RMSE":27.85,"3h hit %":80.0,"neg recall %":35.57,"80% cov %":81.31,"pinball":6.97},{"freq":"1h","ctx":320,"upsample":"linear","config":"tfm_de_wx_tso","MAE":14.93,"RMSE":24.2,"3h hit %":75.56,"neg recall %":41.92,"80% cov %":80.91,"pinball":5.96},{"freq":"1h","ctx":480,"upsample":"step","config":"tfm_multi_wx","MAE":18.07,"RMSE":27.77,"3h hit %":76.67,"neg recall %":44.1,"80% cov %":78.46,"pinball":7.2},{"freq":"1h","ctx":480,"upsample":"step","config":"tfm_de_wx_tso","MAE":15.92,"RMSE":24.88,"3h hit %":81.11,"neg recall %":43.74,"80% cov %":77.09,"pinball":6.29},{"freq":"1h","ctx":480,"upsample":"linear","config":"tfm_multi_wx","MAE":16.48,"RMSE":25.96,"3h hit %":82.22,"neg recall %":40.83,"80% cov %":82.07,"pinball":6.62},{"freq":"1h","ctx":480,"upsample":"linear","config":"tfm_de_wx_tso","MAE":14.18,"RMSE":22.8,"3h hit %":80.0,"neg recall %":43.92,"80% cov %":81.54,"pinball":5.62},{"freq":"1h","ctx":640,"upsample":"step","config":"tfm_multi_wx","MAE":18.24,"RMSE":28.1,"3h hit %":76.67,"neg recall %":40.83,"80% cov %":78.15,"pinball":7.25},{"freq":"1h","ctx":640,"upsample":"step","config":"tfm_de_wx_tso","MAE":16.24,"RMSE":25.68,"3h hit %":78.89,"neg recall %":44.1,"80% cov %":75.08,"pinball":6.42},{"freq":"1h","ctx":640,"upsample":"linear","config":"tfm_multi_wx","MAE":16.76,"RMSE":26.42,"3h hit %":80.0,"neg recall %":38.66,"80% cov %":81.55,"pinball":6.7},{"freq":"1h","ctx":640,"upsample":"linear","config":"tfm_de_wx_tso","MAE":14.58,"RMSE":23.79,"3h hit %":77.78,"neg recall %":43.19,"80% cov %":79.48,"pinball":5.78}],"naive90":{"d1":33.54,"d7":41.7},"floor":[{"window":"90d","freq":"30min","step":4.89,"linear":3.33},{"window":"90d","freq":"1h","step":8.97,"linear":5.58},{"window":"year","freq":"30min","step":4.33,"linear":3.32},{"window":"year","freq":"1h","step":7.92,"linear":5.4}],"year_months":[{"month":"2025-10","days":26,"mean_price":89.6,"std_price":53.3,"neg_share":2.0,"naive_d1":30.35,"naive_d7":42.52,"tfm_de_wx_tso":12.78,"tfm_multi_wx":14.21},{"month":"2025-11","days":30,"mean_price":101.9,"std_price":46.3,"neg_share":0.0,"naive_d1":28.2,"naive_d7":33.4,"tfm_de_wx_tso":12.21,"tfm_multi_wx":13.09},{"month":"2025-12","days":31,"mean_price":93.5,"std_price":30.5,"neg_share":0.0,"naive_d1":20.52,"naive_d7":28.04,"tfm_de_wx_tso":7.92,"tfm_multi_wx":9.88},{"month":"2026-01","days":31,"mean_price":110.1,"std_price":38.9,"neg_share":0.3,"naive_d1":25.04,"naive_d7":27.87,"tfm_de_wx_tso":10.12,"tfm_multi_wx":13.36},{"month":"2026-02","days":28,"mean_price":96.6,"std_price":29.4,"neg_share":0.9,"naive_d1":17.4,"naive_d7":21.36,"tfm_de_wx_tso":7.57,"tfm_multi_wx":8.77},{"month":"2026-03","days":31,"mean_price":99.3,"std_price":57.1,"neg_share":4.7,"naive_d1":40.16,"naive_d7":45.27,"tfm_de_wx_tso":14.18,"tfm_multi_wx":15.29},{"month":"2026-04","days":30,"mean_price":78.5,"std_price":72.3,"neg_share":17.1,"naive_d1":34.27,"naive_d7":48.89,"tfm_de_wx_tso":14.16,"tfm_multi_wx":17.31},{"month":"2026-05","days":31,"mean_price":97.5,"std_price":70.8,"neg_share":10.6,"naive_d1":26.78,"naive_d7":35.63,"tfm_de_wx_tso":13.97,"tfm_multi_wx":15.11},{"month":"2026-06","days":30,"mean_price":109.5,"std_price":81.2,"neg_share":6.9,"naive_d1":37.95,"naive_d7":38.51,"tfm_de_wx_tso":16.04,"tfm_multi_wx":18.16},{"month":"2026-07","days":31,"mean_price":105.4,"std_price":62.9,"neg_share":10.3,"naive_d1":25.8,"naive_d7":36.77,"tfm_de_wx_tso":11.4,"tfm_multi_wx":12.99},{"month":"2026-08","days":31,"mean_price":126.9,"std_price":65.3,"neg_share":7.6,"naive_d1":26.64,"naive_d7":31.76,"tfm_de_wx_tso":11.53,"tfm_multi_wx":14.43},{"month":"2026-09","days":30,"mean_price":144.8,"std_price":86.3,"neg_share":5.0,"naive_d1":49.69,"naive_d7":61.89,"tfm_de_wx_tso":16.4,"tfm_multi_wx":20.65},{"month":"2026-10","days":5,"mean_price":177.9,"std_price":55.4,"neg_share":0.0,"naive_d1":26.3,"naive_d7":41.38,"tfm_de_wx_tso":15.97,"tfm_multi_wx":13.03}],"year_summary":{"naive_d1":{"MAE":30.2,"RMSE":48.75,"vs d-1 %":null,"days beat d-1 %":null,"3h regret":5.83,"3h hit %":47.67,"neg recall %":50.97,"neg prec %":49.09,"80% cov %":null,"pinball":null,"s/day":0.0},"naive_d7":{"MAE":37.69,"RMSE":58.76,"vs d-1 %":-24.76,"days beat d-1 %":38.08,"3h regret":7.18,"3h hit %":40.55,"neg recall %":39.36,"neg prec %":36.48,"80% cov %":null,"pinball":null,"s/day":0.0},"tfm_multi_wx":{"MAE":14.44,"RMSE":26.62,"vs d-1 %":52.2,"days beat d-1 %":87.4,"3h regret":1.57,"3h hit %":65.75,"neg recall %":60.12,"neg prec %":87.53,"80% cov %":78.87,"pinball":5.77,"s/day":2.1},"tfm_de_wx_tso":{"MAE":12.41,"RMSE":23.49,"vs d-1 %":58.9,"days beat d-1 %":90.96,"3h regret":0.88,"3h hit %":73.7,"neg recall %":67.52,"neg prec %":87.36,"80% cov %":80.77,"pinball":4.92,"s/day":1.04}},"year_halves":{"winter":{"naive_d1":27.0,"naive_d7":33.01,"tfm_de_wx_tso":10.79,"tfm_multi_wx":12.44},"summer":{"naive_d1":33.22,"naive_d7":42.1,"tfm_de_wx_tso":13.95,"tfm_multi_wx":16.31}},"example_hourly_ctx":480,"example":{"day":"2026-09-25","config":"tfm_de_wx_tso","time":["00:00","00:15","00:30","00:45","01:00","01:15","01:30","01:45","02:00","02:15","02:30","02:45","03:00","03:15","03:30","03:45","04:00","04:15","04:30","04:45","05:00","05:15","05:30","05:45","06:00","06:15","06:30","06:45","07:00","07:15","07:30","07:45","08:00","08:15","08:30","08:45","09:00","09:15","09:30","09:45","10:00","10:15","10:30","10:45","11:00","11:15","11:30","11:45","12:00","12:15","12:30","12:45","13:00","13:15","13:30","13:45","14:00","14:15","14:30","14:45","15:00","15:15","15:30","15:45","16:00","16:15","16:30","16:45","17:00","17:15","17:30","17:45","18:00","18:15","18:30","18:45","19:00","19:15","19:30","19:45","20:00","20:15","20:30","20:45","21:00","21:15","21:30","21:45","22:00","22:15","22:30","22:45","23:00","23:15","23:30","23:45"],"actual":[197.0,184.4,175.8,170.6,175.1,171.8,171.4,170.3,167.8,166.5,165.9,162.4,164.5,165.6,169.2,169.3,172.3,170.9,169.8,165.9,168.4,169.8,192.3,221.2,204.4,236.1,236.4,264.2,252.9,266.7,273.6,252.4,290.9,260.7,243.4,204.0,235.5,202.7,189.3,157.5,182.5,165.0,148.7,138.0,137.8,123.0,100.4,72.4,85.8,62.8,49.4,42.8,39.0,36.1,26.1,19.2,23.1,35.0,39.9,61.5,40.0,73.6,107.8,126.8,119.9,142.4,165.0,190.7,157.7,192.8,206.2,239.3,202.2,230.0,248.7,284.7,291.8,305.5,315.8,300.7,270.0,255.0,247.0,236.7,244.2,231.2,218.4,202.9,220.0,208.6,202.1,194.7,199.8,193.5,182.4,171.3],"fc15":[180.1,179.5,176.9,175.0,180.3,175.6,173.5,172.9,174.6,173.6,174.6,174.2,174.5,174.9,175.2,174.2,172.3,174.0,175.1,178.0,175.9,180.3,189.1,210.1,201.2,224.8,249.6,269.7,277.6,279.8,270.8,247.7,261.4,239.2,219.1,199.4,209.8,193.2,170.7,148.1,161.6,148.3,134.0,112.3,116.3,103.5,88.8,72.4,74.9,65.4,61.2,60.0,58.8,57.6,56.9,59.4,58.8,70.2,78.6,88.1,84.4,98.3,117.1,127.6,129.5,142.1,156.2,170.9,162.3,182.1,213.2,235.0,216.0,246.2,272.3,297.7,300.8,312.9,316.3,326.2,318.3,290.3,270.9,255.3,260.0,237.9,226.2,215.2,224.2,210.1,204.4,197.5,199.7,191.4,188.3,182.6],"fc1h":[176.0,176.0,175.4,174.2,173.0,171.8,170.7,169.8,169.0,168.1,167.7,167.7,167.8,167.9,168.5,169.7,170.9,172.2,174.8,178.9,183.0,187.1,193.8,203.3,212.8,222.2,233.7,247.2,260.6,274.1,274.4,261.4,248.5,235.6,223.7,212.9,202.2,191.4,181.1,171.3,161.5,151.7,142.4,133.6,124.9,116.1,108.0,100.7,93.3,85.9,81.2,79.0,76.8,74.6,74.6,76.8,79.0,81.2,86.5,94.8,103.1,111.4,120.2,129.6,139.0,148.3,159.5,172.6,185.6,198.6,213.7,231.0,248.3,265.6,284.5,305.1,325.6,346.2,352.0,343.2,334.3,325.4,311.7,293.1,274.6,256.0,242.8,235.1,227.4,219.6,213.4,208.7,204.0,199.2,196.9,196.9],"mae15":13.07,"mae1h":19.64}};
+const NS = "http://www.w3.org/2000/svg";
+const CFG = { tfm_multi_wx: "Weather + calendar", tfm_de_wx_tso: "All covariates", naive_d1: "Same as yesterday", naive_d7: "Same as last week" };
+const RES = { "15min": { label: "15 min", c: "15" }, "30min": { label: "30 min", c: "30" }, "1h": { label: "1 hour", c: "1h" } };
+const f1 = v => v == null ? "–" : v.toFixed(1);
+const f2 = v => v == null ? "–" : v.toFixed(2);
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs || {}) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(parent, x, y, s, cls, anchor) {
+  const t = el("text", { x, y, class: cls, "text-anchor": anchor || "start" }, parent);
+  t.textContent = s;
+  return t;
+}
+function h(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function legend(host, items) {
+  items.forEach(it => {
+    const s = h("span");
+    s.append(h("i", "key " + (it.box ? "box " : "") + "b-" + it.c), document.createTextNode(it.label));
+    host.appendChild(s);
+  });
+}
+function fillTip(tip, t) {
+  tip.textContent = "";
+  tip.appendChild(h("div", "tt", t.title));
+  t.rows.forEach(r => {
+    const row = h("div", "row");
+    row.append(h("i", "key b-" + r.c), h("b", null, r.value), h("i", null, r.label));
+    tip.appendChild(row);
+  });
+  (t.foot || []).forEach(s => tip.appendChild(h("div", "tt", s)));
+}
+function placeTip(tip, host, px, py) {
+  tip.hidden = false;
+  const W = host.clientWidth, tw = tip.offsetWidth;
+  let left = px + 14;
+  if (left + tw > W) left = Math.max(0, px - tw - 14);
+  tip.style.left = left + "px";
+  tip.style.top = Math.max(0, py) + "px";
+}
+function mount(host, draw) {
+  const wrap = h("div");
+  const tip = h("div", "tip");
+  tip.hidden = true;
+  host.append(wrap, tip);
+  let last = 0;
+  const render = () => {
+    const w = Math.round(host.clientWidth);
+    if (!w || w === last) return;
+    last = w;
+    wrap.textContent = "";
+    tip.hidden = true;
+    draw(wrap, w, tip);
+  };
+  new ResizeObserver(render).observe(host);
+  render();
+}
+
+// Line chart with crosshair. o: {height, x:{scale(v, width)->px}, xTicks, yDomain, yTicks, series, snap, tip, vlines, bands, notes}
+function lineChart(host, o) {
+  mount(host, (wrap, W, tip) => {
+    const H = o.height || 300, m = { l: 42, r: 14, t: 12, b: 30 };
+    const pw = W - m.l - m.r, ph = H - m.t - m.b;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": o.aria, tabindex: 0 }, wrap);
+    const sx = v => m.l + o.x(v, pw);
+    const [y0, y1] = o.yDomain;
+    const sy = v => m.t + ph - (v - y0) / (y1 - y0) * ph;
+    (o.bands || []).forEach(b => {
+      el("rect", { x: sx(b.x0), y: m.t, width: sx(b.x1) - sx(b.x0), height: ph, class: "band" }, svg);
+      txt(svg, sx(b.x0) + 6, m.t + ph - 8, b.label, "t-note");
+    });
+    o.yTicks.forEach(v => {
+      el("line", { x1: m.l, x2: W - m.r, y1: sy(v), y2: sy(v), class: "grid" }, svg);
+      txt(svg, m.l - 8, sy(v) + 4, o.yFmt ? o.yFmt(v) : String(v), "t-axis", "end");
+    });
+    el("line", { x1: m.l, x2: W - m.r, y1: m.t + ph, y2: m.t + ph, class: "baseline" }, svg);
+    o.xTicks.forEach(t => { if (!t.minW || pw >= t.minW) txt(svg, sx(t.v), H - 8, t.label, "t-axis", "middle"); });
+    (o.vlines || []).forEach(v => {
+      el("line", { x1: sx(v.x), x2: sx(v.x), y1: m.t, y2: m.t + ph, class: "vline" }, svg);
+      if (pw > 360) txt(svg, sx(v.x) - 5, m.t + 12, v.label, "t-note", "end");
+    });
+    o.series.forEach(s => {
+      const pts = s.points.filter(p => p.y != null);
+      if (!pts.length) return;
+      el("path", { d: pts.map((p, i) => `${i ? "L" : "M"}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(""), class: "ln c-" + s.c }, svg);
+      if (s.markers) pts.forEach(p => el("circle", { cx: sx(p.x), cy: sy(p.y), r: 4, class: "dot f-" + s.c }, svg));
+    });
+    (o.notes || []).forEach(n => txt(svg, sx(n.x) + (n.dx || 0), sy(n.y) + (n.dy || 0), n.text, "t-strong", n.anchor || "middle"));
+
+    const cross = el("line", { class: "cross", y1: m.t, y2: m.t + ph }, svg);
+    cross.style.display = "none";
+    const hl = el("g", {}, svg);
+    const hit = el("rect", { x: m.l - 10, y: m.t, width: pw + 20, height: ph, fill: "transparent" }, svg);
+    let idx = -1;
+    const show = i => {
+      idx = i;
+      const x = o.snap[i], px = sx(x);
+      cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.style.display = "";
+      hl.textContent = "";
+      let top = m.t + ph;
+      o.series.forEach(s => {
+        const p = s.points.find(p => p.x === x && p.y != null);
+        if (!p) return;
+        el("circle", { cx: px, cy: sy(p.y), r: 4.5, class: "dot f-" + s.c }, hl);
+        top = Math.min(top, sy(p.y));
+      });
+      fillTip(tip, o.tip(x));
+      placeTip(tip, host, px * host.clientWidth / W, m.t);
+    };
+    const hide = () => { cross.style.display = "none"; hl.textContent = ""; tip.hidden = true; };
+    hit.addEventListener("pointermove", e => {
+      const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width;
+      let best = 0, bd = Infinity;
+      o.snap.forEach((x, i) => { const d = Math.abs(sx(x) - px); if (d < bd) { bd = d; best = i; } });
+      show(best);
+    });
+    hit.addEventListener("pointerleave", hide);
+    svg.addEventListener("blur", hide);
+    svg.addEventListener("focus", () => show(idx < 0 ? o.snap.length - 1 : idx));
+    svg.addEventListener("keydown", e => {
+      if (e.key === "ArrowRight") { show(Math.min(o.snap.length - 1, idx + 1)); e.preventDefault(); }
+      if (e.key === "ArrowLeft") { show(Math.max(0, idx - 1)); e.preventDefault(); }
+      if (e.key === "Escape") hide();
+    });
+  });
+}
+
+function niceTicks(lo, hi, step) {
+  const out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+function barPathH(x0, x1, y, t) { // horizontal bar, rounded data end
+  const r = Math.min(4, (x1 - x0) / 2, t / 2);
+  return `M${x0},${y}H${x1 - r}Q${x1},${y} ${x1},${y + r}V${y + t - r}Q${x1},${y + t} ${x1 - r},${y + t}H${x0}Z`;
+}
+function barPathV(x, y1, y0, t) { // vertical column from baseline y0 up to y1
+  const r = Math.min(4, (y0 - y1) / 2, t / 2);
+  return `M${x},${y0}V${y1 + r}Q${x},${y1} ${x + r},${y1}H${x + t - r}Q${x + t},${y1} ${x + t},${y1 + r}V${y0}Z`;
+}
+function barTip(node, host, tip, W, px, py, content) {
+  const on = () => { fillTip(tip, content); placeTip(tip, host, px * host.clientWidth / W, py); };
+  node.addEventListener("pointerenter", on);
+  node.addEventListener("focus", on);
+  node.addEventListener("pointerleave", () => { tip.hidden = true; });
+  node.addEventListener("blur", () => { tip.hidden = true; });
+}
+
+/* ---------- data helpers ---------- */
+const sweep = D.sweep;
+const pick = (freq, config, up) => sweep.filter(r => r.freq === freq && r.config === config && (r.upsample === (freq === "15min" ? "native" : up))).sort((a, b) => a.ctx - b.ctx);
+const at = (freq, config, ctx, up = "linear") => pick(freq, config, up).find(r => r.ctx === ctx);
+function bestOf(freq, config) {
+  const rows = pick(freq, config, "linear");
+  return rows.length ? rows.reduce((a, b) => (a.MAE <= b.MAE ? a : b)) : null;
+}
+
+/* ---------- tiles ---------- */
+function tile(host, { label, value, unit, sub, delta, lead }) {
+  const t = h("div", "tile" + (lead ? " lead" : ""));
+  t.appendChild(h("div", "label", label));
+  const v = h("div", "value", value);
+  if (unit) v.appendChild(h("small", null, unit));
+  t.appendChild(v);
+  if (delta) t.appendChild(h("div", "delta " + delta.cls, delta.text));
+  if (sub) t.appendChild(h("div", "sub", sub));
+  host.appendChild(t);
+}
+function deltaVs(v, ref) {
+  const d = v - ref;
+  if (Math.abs(d) < 0.15) return { cls: "flat", text: `≈ same as 112 days (${d >= 0 ? "+" : "−"}${Math.abs(d).toFixed(2)})` };
+  return d < 0 ? { cls: "good", text: `▼ ${Math.abs(d).toFixed(2)} better than 112 days` } : { cls: "bad", text: `▲ ${d.toFixed(2)} worse than 112 days` };
+}
+(function tiles() {
+  const host = document.getElementById("tiles");
+  const ref = at("15min", "tfm_de_wx_tso", 112), refWx = at("15min", "tfm_multi_wx", 112);
+  tile(host, { label: "Today: 15 min, 112 days", value: f1(ref.MAE), unit: "EUR/MWh", sub: `weather only ${f1(refWx.MAE)} · naive ${f1(D.naive90.d1)}`, lead: true });
+  const c160 = at("15min", "tfm_de_wx_tso", 160), w160 = at("15min", "tfm_multi_wx", 160);
+  tile(host, { label: "15 min, 160 days (the limit)", value: f1(c160.MAE), unit: "EUR/MWh", delta: deltaVs(c160.MAE, ref.MAE), sub: `weather only ${f1(w160.MAE)}` });
+  [["30min", "30 min"], ["1h", "1 hour"]].forEach(([fr, name]) => {
+    const b = bestOf(fr, "tfm_de_wx_tso"), bw = bestOf(fr, "tfm_multi_wx");
+    if (!b) return;
+    tile(host, { label: `Best ${name}: ${b.ctx} days`, value: f1(b.MAE), unit: "EUR/MWh", delta: deltaVs(b.MAE, ref.MAE), sub: `weather only ${f1(bw.MAE)} at ${bw.ctx} days` });
+  });
+})();
+
+/* ---------- context sweep ---------- */
+(function sweepCharts() {
+  legend(document.getElementById("sweep-legend"), [
+    { c: "15", label: "15-minute steps" }, { c: "30", label: "30-minute steps" }, { c: "1h", label: "Hourly steps" },
+  ]);
+  const ctxAll = [...new Set(sweep.map(r => r.ctx))].sort((a, b) => a - b);
+  const lo = Math.log(6), hi = Math.log(720);
+  const x = (v, w) => (Math.log(v) - lo) / (hi - lo) * w;
+  const ys = sweep.filter(r => r.upsample !== "step").map(r => r.MAE);
+  const yMin = Math.floor(Math.min(...ys) - 0.5), yMax = Math.ceil(Math.max(...ys) + 0.5);
+  [["sweep-wx", "tfm_multi_wx"], ["sweep-tso", "tfm_de_wx_tso"]].forEach(([id, cfg]) => {
+    const series = Object.entries(RES).map(([fr, r]) => ({
+      c: r.c, label: r.label, markers: true,
+      points: pick(fr, cfg, "linear").map(p => ({ x: p.ctx, y: p.MAE })),
+    }));
+    const all = series.flatMap(s => s.points);
+    const best = all.reduce((a, b) => (a.y <= b.y ? a : b));
+    lineChart(document.getElementById(id), {
+      height: 290,
+      aria: `MAE by days of context for ${CFG[cfg]}, three resolutions`,
+      x, yDomain: [yMin, yMax], yTicks: niceTicks(yMin, yMax, 2),
+      xTicks: [7, 14, 28, 56, 112, 160, 320, 640].map(v => ({ v, label: String(v), minW: v === 160 ? 380 : 0 })),
+      vlines: [{ x: 160, label: "15-min limit" }, { x: 320, label: "30-min limit" }],
+      series, snap: ctxAll,
+      notes: [{ x: best.x, y: best.y, dy: 20, text: `best ${f1(best.y)}` }],
+      tip: ctx => ({
+        title: `${ctx} DAYS OF CONTEXT`,
+        rows: series.map(s => ({ s, p: s.points.find(p => p.x === ctx) })).filter(o => o.p)
+          .map(o => ({ c: o.s.c, value: f2(o.p.y), label: o.s.label })),
+        foot: ["MAE, EUR/MWh"],
+      }),
+    });
+  });
+})();
+
+/* ---------- resolution floor ---------- */
+(function floorChart() {
+  const rows = D.floor.filter(r => r.window === "90d");
+  const bars = [];
+  rows.forEach(r => {
+    const c = r.freq === "1h" ? "1h" : "30";
+    const name = r.freq === "1h" ? "Hourly" : "Half-hourly";
+    bars.push({ c, label: `${name}, flat steps`, v: r.step });
+    bars.push({ c, label: `${name}, interpolated`, v: r.linear });
+  });
+  bars.sort((a, b) => a.v - b.v);
+  const ref = at("15min", "tfm_de_wx_tso", 112).MAE;
+  mount(document.getElementById("floor"), (wrap, W, tip) => {
+    const t = 22, gap = 14, m = { l: 150, r: 46, t: 18, b: 26 };
+    const H = m.t + bars.length * (t + gap) - gap + m.b;
+    const pw = W - m.l - m.r;
+    const xMax = Math.ceil(ref + 1);
+    const sx = v => m.l + v / xMax * pw;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Minimum error caused by coarser resolution" }, wrap);
+    niceTicks(0, xMax, 2).forEach(v => {
+      el("line", { x1: sx(v), x2: sx(v), y1: m.t - 6, y2: H - m.b, class: "grid" }, svg);
+      txt(svg, sx(v), H - 8, String(v), "t-axis", "middle");
+    });
+    el("line", { x1: sx(ref), x2: sx(ref), y1: m.t - 14, y2: H - m.b, class: "vline" }, svg);
+    txt(svg, sx(ref) - 5, m.t - 6, `15-min model ${f1(ref)}`, "t-note", "end");
+    el("line", { x1: m.l, x2: m.l, y1: m.t - 6, y2: H - m.b, class: "baseline" }, svg);
+    bars.forEach((b, i) => {
+      const y = m.t + i * (t + gap);
+      txt(svg, m.l - 10, y + t / 2 + 4, b.label, "t-label", "end");
+      const p = el("path", { d: barPathH(m.l, sx(b.v), y, t), class: "bar f-" + b.c, tabindex: 0 }, svg);
+      txt(svg, sx(b.v) + 6, y + t / 2 + 4, f1(b.v), "t-strong");
+      barTip(p, document.getElementById("floor"), tip, W, sx(b.v), y - 4, {
+        title: "LOWEST POSSIBLE MAE", rows: [{ c: b.c, value: f2(b.v), label: b.label }],
+        foot: [`${Math.round(100 * b.v / ref)}% of the 15-min model's error`],
+      });
+    });
+  });
+})();
+
+/* ---------- example day ---------- */
+(function exampleChart() {
+  const ex = D.example;
+  if (!ex) return;
+  const day = new Date(ex.day + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  document.getElementById("ex-title").textContent = `${day}: strong quarter-hour swings`;
+  document.getElementById("ex-sub").textContent = `All covariates · day MAE ${f1(ex.mae15)} at 15 min vs ${f1(ex.mae1h)} hourly (${D.example_hourly_ctx} days)`;
+  legend(document.getElementById("ex-legend"), [
+    { c: "ink", label: "Actual" }, { c: "15", label: "15-min forecast" }, { c: "1h", label: "Hourly forecast" },
+  ]);
+  const n = ex.actual.length, idx = [...Array(n).keys()];
+  const vals = [...ex.actual, ...ex.fc15, ...ex.fc1h].filter(v => v != null);
+  const step = (Math.max(...vals) - Math.min(...vals)) > 200 ? 100 : 50;
+  const yMin = Math.floor(Math.min(...vals) / step) * step, yMax = Math.ceil(Math.max(...vals) / step) * step;
+  const series = [
+    { c: "ink", label: "Actual", points: ex.actual.map((y, i) => ({ x: i, y })) },
+    { c: "15", label: "15-min forecast", points: ex.fc15.map((y, i) => ({ x: i, y })) },
+    { c: "1h", label: "Hourly forecast", points: ex.fc1h.map((y, i) => ({ x: i, y })) },
+  ];
+  lineChart(document.getElementById("example"), {
+    height: 270, aria: `Quarter-hour prices on ${ex.day}: actual, 15-minute and hourly forecasts`,
+    x: (v, w) => v / (n - 1) * w, yDomain: [yMin, yMax], yTicks: niceTicks(yMin, yMax, step),
+    xTicks: ex.time.map((t, i) => ({ v: i, label: t })).filter((t, i) => i % 24 === 0).concat([{ v: n - 1, label: "24:00" }]),
+    series, snap: idx,
+    tip: i => ({ title: ex.time[i], rows: series.map(s => ({ c: s.c, value: f1(s.points[i].y), label: s.label })), foot: ["EUR/MWh"] }),
+  });
+})();
+
+/* ---------- year ---------- */
+(function yearCharts() {
+  const months = D.year_months;
+  if (!months) return;
+  const yt = document.getElementById("year-tiles"), S = D.year_summary, Hh = D.year_halves;
+  tile(yt, { label: "Full year, all covariates", value: f1(S.tfm_de_wx_tso.MAE), unit: "EUR/MWh", lead: true,
+    sub: `90-day test said ${f1(at("15min", "tfm_de_wx_tso", 112).MAE)} · beats naive on ${Math.round(S.tfm_de_wx_tso["days beat d-1 %"])}% of days` });
+  tile(yt, { label: "Full year, weather + calendar", value: f1(S.tfm_multi_wx.MAE), unit: "EUR/MWh",
+    sub: `90-day test said ${f1(at("15min", "tfm_multi_wx", 112).MAE)} · beats naive on ${Math.round(S.tfm_multi_wx["days beat d-1 %"])}% of days` });
+  tile(yt, { label: "Full year, same as yesterday", value: f1(S.naive_d1.MAE), unit: "EUR/MWh", sub: `90-day test said ${f1(D.naive90.d1)}` });
+  tile(yt, { label: "Winter vs summer, all covariates", value: `${f1(Hh.winter.tfm_de_wx_tso)} / ${f1(Hh.summer.tfm_de_wx_tso)}`, unit: "",
+    sub: `Oct–Mar / Apr–Oct · weather only ${f1(Hh.winter.tfm_multi_wx)} / ${f1(Hh.summer.tfm_multi_wx)}` });
+
+  legend(document.getElementById("year-legend"), [
+    { c: "nv", label: "Same as yesterday" }, { c: "15s", label: "TimesFM, weather + calendar" }, { c: "15", label: "TimesFM, all covariates" },
+  ]);
+  const n = months.length, idx = [...Array(n).keys()];
+  const lab = m => { const d = new Date(m + "-15T00:00:00Z"); const s = d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" }); return (m.endsWith("-01") || m === months[0].month) ? `${s} ’${m.slice(2, 4)}` : s; };
+  const x = (v, w) => (v + 0.5) / n * w;
+  const vals = months.flatMap(m => [m.naive_d1, m.tfm_multi_wx, m.tfm_de_wx_tso]).filter(v => v != null);
+  const yMax = Math.ceil(Math.max(...vals) / 10) * 10;
+  const series = [
+    { c: "nv", key: "naive_d1", label: "Same as yesterday" },
+    { c: "15s", key: "tfm_multi_wx", label: "Weather + calendar" },
+    { c: "15", key: "tfm_de_wx_tso", label: "All covariates" },
+  ].map(s => ({ ...s, markers: true, points: months.map((m, i) => ({ x: i, y: m[s.key] })) }));
+  const i0 = months.findIndex(m => m.month === "2026-07");
+  lineChart(document.getElementById("year"), {
+    height: 300, aria: "Monthly MAE over the full-year backtest",
+    x, yDomain: [0, yMax], yTicks: niceTicks(0, yMax, 10),
+    xTicks: months.map((m, i) => ({ v: i, label: lab(m.month), minW: (i % 2 && !lab(m.month).includes("’")) ? 560 : 0 })),
+    bands: i0 >= 0 ? [{ x0: i0 - 0.5, x1: n - 0.5, label: "90-day test" }] : [],
+    series, snap: idx,
+    tip: i => ({
+      title: `${lab(months[i].month).toUpperCase()} · ${months[i].days} DAYS`,
+      rows: series.map(s => ({ c: s.c, value: f1(s.points[i].y), label: s.label })),
+      foot: [`mean price ${f1(months[i].mean_price)} · ${f1(months[i].neg_share)}% negative`],
+    }),
+  });
+  mount(document.getElementById("vol"), (wrap, W, tip) => {
+    const H = 130, m = { l: 42, r: 14, t: 10, b: 26 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+    const vMax = Math.ceil(Math.max(...months.map(m => m.std_price)) / 25) * 25;
+    const sy = v => m.t + ph - v / vMax * ph;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Standard deviation of quarter-hour prices per month" }, wrap);
+    niceTicks(0, vMax, vMax > 100 ? 50 : 25).forEach(v => {
+      el("line", { x1: m.l, x2: W - m.r, y1: sy(v), y2: sy(v), class: "grid" }, svg);
+      txt(svg, m.l - 8, sy(v) + 4, String(v), "t-axis", "end");
+    });
+    el("line", { x1: m.l, x2: W - m.r, y1: m.t + ph, y2: m.t + ph, class: "baseline" }, svg);
+    const t = Math.min(24, pw / n * 0.55);
+    months.forEach((mo, i) => {
+      const cx = m.l + x(i, pw);
+      const p = el("path", { d: barPathV(cx - t / 2, sy(mo.std_price), m.t + ph, t), class: "bar f-nv", tabindex: 0 }, svg);
+      if (!(i % 2) || pw >= 560 || lab(mo.month).includes("’")) txt(svg, cx, H - 8, lab(mo.month), "t-axis", "middle");
+      barTip(p, document.getElementById("vol"), tip, W, cx, 0, {
+        title: lab(mo.month).toUpperCase(), rows: [{ c: "nv", value: f1(mo.std_price), label: "price std, EUR/MWh" }],
+        foot: [`mean ${f1(mo.mean_price)} EUR/MWh`],
+      });
+    });
+  });
+})();
+
+/* ---------- table ---------- */
+(function table() {
+  const tb = document.getElementById("table");
+  const head = h("thead"), tr = h("tr");
+  ["Resolution", "Context", "Spread to 15 min", "MAE", "RMSE", "Cheapest 3 h hit", "Neg. recall", "80% band", "Pinball"].forEach(s => tr.appendChild(h("th", null, s)));
+  head.appendChild(tr); tb.appendChild(head);
+  const body = h("tbody");
+  ["tfm_multi_wx", "tfm_de_wx_tso"].forEach(cfg => {
+    const g = h("tr", "group"), td = h("td", null, CFG[cfg]);
+    td.colSpan = 9; g.appendChild(td); body.appendChild(g);
+    const rows = sweep.filter(r => r.config === cfg).sort((a, b) => ["15min", "30min", "1h"].indexOf(a.freq) - ["15min", "30min", "1h"].indexOf(b.freq) || a.ctx - b.ctx || (a.upsample > b.upsample ? 1 : -1));
+    const best = Math.min(...rows.map(r => r.MAE));
+    rows.forEach(r => {
+      const row = h("tr", r.MAE === best ? "best" : "");
+      const c0 = h("td", null, RES[r.freq].label);
+      if (r.MAE === best) c0.appendChild(h("span", "chip", "best"));
+      row.append(c0, h("td", null, `${r.ctx} days`), h("td", null, r.upsample === "native" ? "–" : r.upsample === "linear" ? "interpolated" : "flat steps"),
+        h("td", null, f2(r.MAE)), h("td", null, f2(r.RMSE)), h("td", null, f1(r["3h hit %"]) + "%"), h("td", null, f1(r["neg recall %"]) + "%"),
+        h("td", null, f1(r["80% cov %"]) + "%"), h("td", null, f2(r.pinball)));
+      body.appendChild(row);
+    });
+  });
+  tb.appendChild(body);
+})();
+</script>
+</body>
+</html>

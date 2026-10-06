@@ -87,6 +87,10 @@ def run(
     """Forecast every day in ``days`` with every config; return one row per (config, day, slot)."""
     bounds = day_bounds(df)
     ctx_len = context_days * DAY
+    # A negative slice start would silently wrap around instead of failing.
+    if min(bounds[d][0] for d in days) < ctx_len:
+        raise ValueError(f"{context_days} days of context reach back before the dataset start "
+                         f"({df.index[0]:%Y-%m-%d}); fetch with an earlier --start")
     actual_all = df[TARGET].to_numpy()
     rows: list[pd.DataFrame] = []
 

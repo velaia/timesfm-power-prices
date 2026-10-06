@@ -23,3 +23,10 @@ def test_day_bounds_cover_the_grid_without_gaps():
     bounds = backtest.day_bounds(pd.DataFrame(index=idx))
     assert [e - s for s, e in bounds.values()] == [96, 100, 96]
     assert list(bounds.values())[-1][1] == len(idx)
+
+
+def test_backtest_refuses_context_longer_than_the_data():
+    idx = dataset.grid(date(2026, 1, 1), date(2026, 1, 10))
+    df = pd.DataFrame({backtest.TARGET: 1.0}, index=idx)
+    with pytest.raises(ValueError, match="before the dataset start"):
+        backtest.run(df, [date(2026, 1, 10)], context_days=10, device="cpu")

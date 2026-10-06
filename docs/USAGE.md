@@ -42,6 +42,7 @@ published. This file is the only one under `data/` that can't be rebuilt.
 uv run price-forecast backtest                      # last 90 days, 112 days of context
 uv run price-forecast backtest --end 2026-10-05     # reproduce the published window
 uv run price-forecast backtest --context-days 28 --configs tfm_multi tfm_de_wx_tso
+uv run price-forecast backtest --days 365 --out backtest_ctx112d_365d   # full year, separate files
 ```
 
 Each day D is forecast from what is known at 10:00 on D-1:
@@ -49,7 +50,9 @@ Each day D is forecast from what is known at 10:00 on D-1:
 - **Context:** prices up to D-1 23:45. These come out of the D-2 auction, so they are known at issue time.
 - **Covariates:** past-and-future series running through the end of D.
 
-Results land in `outputs/backtest_ctx<N>d*`: a per-slot parquet, a summary CSV and two PNGs.
+Results land in `outputs/backtest_ctx<N>d*` (or the stem given with `--out`): a per-slot parquet, a summary CSV
+and two PNGs. The context can't reach back before the start of `data/dataset.parquet`; fetch with an earlier
+`--start` for long contexts. TimesFM 3 itself accepts at most 160 days of quarter hours.
 Rerunning on the same data gives identical numbers.
 
 | Config | Targets | Covariates |
@@ -100,3 +103,7 @@ forecasts with a longer lead time.
 | `forecast.py` | Live forecast of one day; TSO fallback; JSON/console output |
 | `plots.py` / `figures.py` | Backtest/forecast charts; README figures |
 | `metrics.py` | MAE, RMSE, coverage, pinball loss |
+
+Outside the package, `experiments/context_study/` holds the half-hourly and hourly backtest
+(`coarse_resolution.py`) and the builder of [context_study.html](context_study.html) (`build_page.py`). The commands
+are in [RESULTS.md](RESULTS.md#reproduce).
